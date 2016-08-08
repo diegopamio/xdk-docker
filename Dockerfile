@@ -11,7 +11,7 @@ RUN sudo apt-get update && \
     sudo rm -rf /var/lib/apt/lists/* && \
     cd /home/user && curl --insecure -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.gz" \
     && sudo tar -xzf "node-v$NODE_VERSION-linux-x64.tar.gz" -C /usr/local --strip-components=1 \
-    && sudo rm "node-v$NODE_VERSION-linux-x64.tar.gz" SHASUMS256.txt.asc
+    && sudo rm "node-v$NODE_VERSION-linux-x64.tar.gz"
 
 EXPOSE 3000 5000 9000 5353 5354
 RUN sudo npm install -g npm@latest
