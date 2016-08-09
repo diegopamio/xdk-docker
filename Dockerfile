@@ -1,36 +1,36 @@
-FROM codenvy/debian_jre
-ENV NODE_VERSION=0.12.9 \
-    NODE_PATH=/usr/local/lib/node_modules
-    
-RUN sudo apt-get update && \
-    sudo apt-get -y install build-essential libssl-dev libkrb5-dev gcc make ruby-full rubygems && \
-    sudo gem install sass compass && \
-    sudo apt-get clean && \
-    sudo apt-get -y autoremove && \
-    sudo apt-get -y clean && \
-    sudo rm -rf /var/lib/apt/lists/* && \
-    set -ex \
-    && for key in \
-      9554F04D7259F04124DE6B476D5A82AC7E37093B \
-      94AE36675C464D64BAFA68DD7434390BDBE9B9C5 \
-      0034A06D9D9B0064CE8ADF6BF1747F4AD2306D93 \
-      FD3A5288F042B6850C66B31F09FE44734EB7990E \
-      71DCFD284A79C3B38668286BC97EC7A07EDE3FC1 \
-      DD8F2338BAE7501E3DD5AC78C273792F7D83545D \
-    ; do \
-      gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
-    done && \
-    cd /home/user && curl --insecure -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.gz" \
-    && curl --insecure -SLO "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt.asc" \
-    && gpg --verify SHASUMS256.txt.asc \
-    && grep "node-v$NODE_VERSION-linux-x64.tar.gz\$" SHASUMS256.txt.asc | sha256sum -c - \
-    && sudo tar -xzf "node-v$NODE_VERSION-linux-x64.tar.gz" -C /usr/local --strip-components=1 \
-    && sudo rm "node-v$NODE_VERSION-linux-x64.tar.gz" SHASUMS256.txt.asc
-
-EXPOSE 3000 5000 9000 5353 5354
-RUN sudo npm install -g npm@latest
-RUN sudo npm install --unsafe-perm -g gulp bower grunt grunt-cli yeoman-generator yo generator-angular generator-karma generator-webapp
-
+FROM fedora:23
+ENV CC arm-linux-gnueabi-gcc
+ENV CXX arm-linux-gnueabi-g++
+ENV JAVA_VERSION=8u65 \
+    JAVA_VERSION_PREFIX=1.8.0_65
+ENV JAVA_HOME /opt/jre$JAVA_VERSION_PREFIX
+ENV PATH $JAVA_HOME/bin:$PATH
+ENV CPATH=/usr/arm-linux-gnueabi/sys-root/usr/include/artik
+ENV NODE_PATH=/usr/local/lib/node_modules
+RUN dnf update -y && \
+    dnf install dnf-plugins-core copr-cli -y && \
+    dnf copr enable lantw44/arm-linux-gnueabi-toolchain -y && \
+    dnf --enablerepo='*debug*' install android-tools arm-linux-gnueabi-{binutils,gcc,glibc} sudo usbutils openssh-server procps wget unzip mc git curl openssl bash passwd tar gdb sshpass cpio subversion -y && \
+    dnf clean all && \
+    mkdir /var/run/sshd && \
+    sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd && \
+    echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+    sed -i 's/requiretty/!requiretty/g' /etc/sudoers && \
+    wget \
+    --no-cookies \
+    --no-check-certificate \
+    --header "Cookie: oraclelicense=accept-securebackup-cookie" \
+    -qO- "http://download.oracle.com/otn-pub/java/jdk/$JAVA_VERSION-b17/jre-$JAVA_VERSION-linux-x64.tar.gz" | tar -zx -C /opt/ && \
+    echo -e "#! /bin/bash\n set -e\nsudo /usr/bin/ssh-keygen -A\n sudo /usr/sbin/sshd -D &\n exec \"\$@\"" > /root/entrypoint.sh && chmod a+x /root/entrypoint.sh && \
+    echo -e "export JAVA_HOME=/opt/jre$JAVA_VERSION_PREFIX\nexport CC=arm-linux-gnueabi-gcc\n export CXX=arm-linux-gnueabi-g++\nexport PATH=$JAVA_HOME/bin:$PATH" >> /root/.bashrc
+ADD artik-libs-deps.zip /
+RUN unzip -q artik-libs-deps.zip -d /usr/arm-linux-gnueabi/sys-root && rm artik-libs-deps.zip
+ADD artik.repo /etc/yum.repos.d/artik.repo
+ADD RPM-GPG-KEY-artik-22-armhfp /etc/pki/rpm-gpg/RPM-GPG-KEY-artik-22-armhfp
+RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-artik-22-armhfp
+RUN dnf makecache && dnf install --disablerepo=updates --disablerepo=lantw44-arm-linux-gnueabi-toolchain --disablerepo=fedora libartik-sdk-sysroot libartik-sdk-doc -y
+EXPOSE 22 4403 5353 5354
+ENTRYPOINT ["/root/entrypoint.sh"]
 WORKDIR /projects
-
-CMD tail -f /dev/null
+CMD adb start-server && \
+    tail -f /dev/null
